@@ -1,0 +1,2 @@
+sudo cp ./iqaudioamp /etc/init.d
+sudo update-rc.d iqaudioamp defaults
