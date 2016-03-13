@@ -12,8 +12,7 @@ from threading import Thread
 #Events are queued and handled FIFO
 class Event():
     class EventType():
-        ON = 0
-        OFF = 1
+        ONOFF = 1
         PLAYLIST = 2
         TRACK = 3
         VOL = 4
@@ -83,6 +82,7 @@ class MPDStatusMonitor(Thread):
             
             sleep(self.interval)
 
+        self.mpd.close()
         self.running = False
 
     def stop(self):
@@ -90,10 +90,10 @@ class MPDStatusMonitor(Thread):
         while(self.running):
             sleep(0.01)
 
-class MPDKeepAlive(threading.Thread):
-    def __init__(self, eventQ, interval = DEFAULT_INTERVAL):
+class MPDKeepAlive(Thread):
+    def __init__(self, eventQ, interval = 1):
         #setup threading
-        threading.Thread.__init__(self)
+        Thread.__init__(self)
         
         self.eventQ = eventQ
         self.interval = interval
@@ -121,20 +121,20 @@ class MPDControl():
         #create the pi play board
         self.piplayboard = PiPlayBoard(inverted)
         self.piplayboard.middle.when_pressed = self._playpausebutton
+        self.piplayboard.middle.when_held = self._onoffbutton
         self.piplayboard.right.when_pressed = self._volupbutton
+        self.piplayboard.right.when_held = self._volupbutton
         self.piplayboard.left.when_pressed = self._voldownbutton
+        self.piplayboard.left.when_held = self._voldownbutton
         self.piplayboard.rightdown.when_pressed = self._tracknextbutton
         self.piplayboard.leftdown.when_pressed = self._trackprevbutton
         self.piplayboard.rightup.when_pressed = self._playlistnextbutton
         self.piplayboard.leftup.when_pressed = self._playlistprevbutton
-        self.piplayboard.ledbargraph.value = 0.9
 
         #create connection to MPD client / volumio
         self.mpd_host = mpd_host
         self.mpd_port = mpd_port
-        self.mpd = mpd.MPDClient()
-        self.mpd.connect(mpd_host, mpd_port)
-
+        
         self.stopped = True
         self.running = False
         
@@ -147,25 +147,30 @@ class MPDControl():
         self.stopped = False
         self.running = True
 
-        mpdstatusmon = MPDStatusMonitor(self.mpd_host, self.mpd_port, self.eventQ)
-        mpdkeepalive = MPDKeepAlive()
-        
-        mpdstatusmon.start()
+        self.mpd = mpd.MPDClient()
+        self.mpd.connect(self.mpd_host, self.mpd_port)
+        mpdkeepalive = MPDKeepAlive(self.eventQ)
         mpdkeepalive.start()
+
+        self.mpdstatusmon = MPDStatusMonitor(self.mpd_host, self.mpd_port, self.eventQ)
+        self.mpdstatusmon.start()
+        
+        self._off()
         
         try:
             while not self.stopped:
                 #process events
                 while not self.eventQ.empty():
                     event = self.eventQ.get()
-                    #print(event.eventType)
+                    print(event.eventType)
                     self._processevent(event)
                     
-                sleep(0.1)
+                sleep(0.01)
                 
         finally:
-            mpdstatusmon.stop()
+            self.mpdstatusmon.stop()
             mpdkeepalive.stop()
+            self.mpd.close()
         
         self.running = False
 
@@ -176,20 +181,29 @@ class MPDControl():
 
     #process events in the q
     def _processevent(self, event):
-        if (event.eventType == Event.EventType.PLAYPAUSE):
-            self._playpause()
-        elif (event.eventType == Event.EventType.VOL):
-            self._volume(event.value)
-        elif (event.eventType == Event.EventType.TRACK):
-            self._skiptrack(event.value)
-        elif (event.eventType == Event.EventType.PLAYLIST):
-            self._skipplaylist(event.value)
-        elif (event.eventType == Event.EventType.VOLCHANGED):
-            self._displayvolume(event.value)
+
+        if (event.eventType == Event.EventType.ONOFF):
+            self._onoff()
         elif (event.eventType == Event.EventType.PINGMPD):
             self._pingMPD()
-        
+        elif (event.eventType == Event.EventType.VOLCHANGED):
+                self._displayvolume(event.value)
+
+        #process on events
+        if self.on:
+            if (event.eventType == Event.EventType.PLAYPAUSE):
+                self._playpause()
+            elif (event.eventType == Event.EventType.VOL):
+                self._volume(event.value)
+            elif (event.eventType == Event.EventType.TRACK):
+                self._skiptrack(event.value)
+            elif (event.eventType == Event.EventType.PLAYLIST):
+                self._skipplaylist(event.value)
+            
     #button call backs
+    def _onoffbutton(self):
+        self.eventQ.put(Event(Event.EventType.ONOFF))
+
     def _playpausebutton(self):
         self.eventQ.put(Event(Event.EventType.PLAYPAUSE))
 
@@ -224,6 +238,22 @@ class MPDControl():
 
         finally:
             return success
+
+    def _onoff(self):
+        if self.on:
+            self._off()
+        else:
+            self._on()
+            
+    def _off(self):
+        self._stop()
+        self.on = False
+        self.piplayboard.ledbargraph.turnoff()
+
+    def _on(self):
+        self._play()
+        self.on = True
+        self.piplayboard.ledbargraph.turnon()
 
     def _playpause(self):
         state = self.mpd.status()["state"]
