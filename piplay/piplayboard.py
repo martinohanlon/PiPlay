@@ -64,16 +64,16 @@ class HoldableButton(Button):
         self._when_held = value
 
     def _when_button_pressed(self):
+        self._start_hold()
+
         if self._when_pressed != None:
             self._when_pressed()
 
-        self._start_hold()
-
     def _when_button_released(self):
+        self._stop_hold()
+
         if self._when_released != None:
             self.when_released()
-
-        self._stop_hold()
 
     def _start_hold(self):
         if self._when_held != None:
@@ -93,27 +93,27 @@ class LEDDisplay(LEDBarGraph):
     def __init__(self, *pins, **kwargs):
 
         self._displayon = True
+        self._blink = False
+        self._blinktimer = False
 
         super(LEDDisplay, self).__init__(*pins, **kwargs)
         
         self.this_value = self.value
         
     def turnon(self):
-        print("turn on")
         if not self._displayon:
             self._displayon = True
             for i in range(0, 11):
                 self.value = i / 10.0
-                sleep(0.1)
+                sleep(0.05)
             self.value = self.this_value
 
     def turnoff(self):
-        print("turn off")
         if self._displayon:
             self.this_value = self.value
             for i in range(10, -1, -1):
                 self.value = i / 10.0
-                sleep(0.1)
+                sleep(0.05)
             self._displayon = False
 
     @property
@@ -122,13 +122,11 @@ class LEDDisplay(LEDBarGraph):
     
     @value.setter
     def value(self, value):
-        
         if self._displayon:
             LEDBarGraph.value.fset(self, value)
         else:
             self.this_value = value
-            
-
+    
 class PiPlayBoard():
     
     def __init__(self, inverted = False):
@@ -139,13 +137,13 @@ class PiPlayBoard():
             self.pins = PINS
 
         #create buttons
-        self.middle = HoldableButton(self.pins["BUT_MID"], hold_time = 2)
-        self.leftup = Button(self.pins["BUT_L_UP"])
-        self.leftdown = Button(self.pins["BUT_L_DOWN"])
-        self.rightup = Button(self.pins["BUT_R_UP"])
-        self.rightdown = Button(self.pins["BUT_R_DOWN"])
-        self.left = HoldableButton(self.pins["BUT_L"], hold_time = 0.1, repeat = True)
-        self.right = HoldableButton(self.pins["BUT_R"], hold_time = 0.1, repeat = True)
+        self.middle = HoldableButton(self.pins["BUT_MID"])
+        self.leftup = HoldableButton(self.pins["BUT_L_UP"])
+        self.leftdown = HoldableButton(self.pins["BUT_L_DOWN"])
+        self.rightup = HoldableButton(self.pins["BUT_R_UP"])
+        self.rightdown = HoldableButton(self.pins["BUT_R_DOWN"])
+        self.left = HoldableButton(self.pins["BUT_L"])
+        self.right = HoldableButton(self.pins["BUT_R"])
 
         #create a tuple of the buttons
         self.buttons = (self.middle,
@@ -157,7 +155,7 @@ class PiPlayBoard():
                         self.right)
 
         #create the led bargraph
-        self.ledbargraph = LEDDisplay(*self.pins["LEDBARGRAPH"])
+        self.leddisplay = LEDDisplay(*self.pins["LEDBARGRAPH"])
 
 #test
 if __name__ == "__main__":
