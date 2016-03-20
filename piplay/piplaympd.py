@@ -318,25 +318,27 @@ class MPDControl():
         
         #get the playlists
         playlists = self.mpd.listplaylists()
+
+        if len(playlists) > 0:
         
-        #find the current playlist position
-        playlistpos = 0
-        for pos in range(0, len(playlists)):
-            if playlists[pos]["playlist"] == self.currentplaylist:
-                playlistpos = pos
-                break
+            #find the current playlist position
+            playlistpos = 0
+            for pos in range(0, len(playlists)):
+                if playlists[pos]["playlist"] == self.currentplaylist:
+                    playlistpos = pos
+                    break
 
-        #which playlist are we skipping to
-        playlistpos = playlistpos + value
+            #which playlist are we skipping to
+            playlistpos = playlistpos + value
 
-        #are we on the last playlist?
-        if playlistpos == len(playlists): playlistpos = 0
+            #are we on the last playlist?
+            if playlistpos == len(playlists): playlistpos = 0
 
-        #are we past the first playlist?
-        if playlistpos == -1: playlistpos = len(playlists) - 1
+            #are we past the first playlist?
+            if playlistpos == -1: playlistpos = len(playlists) - 1
 
-        #load the playlist
-        self._loadplaylist(playlists[playlistpos]["playlist"])
+            #load the playlist
+            self._loadplaylist(playlists[playlistpos]["playlist"])
             
     def _loadplaylist(self, playlistname):
         self._safeMPDExec(self.mpd.clear)
