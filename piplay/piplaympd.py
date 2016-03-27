@@ -21,6 +21,7 @@ class Event():
         VOLCHANGED = 7
         PINGMPD = 8
         STATUSCHANGED = 9
+        SHUTDOWN = 10
         
     def __init__(self, eventType, value = None):
         self.eventType = eventType
@@ -146,9 +147,13 @@ class MPDControl():
         self.piplayboard.leftdown.when_pressed = self._trackprevbutton
         
         self.piplayboard.rightup.when_pressed = self._playlistnextbutton
+        self.piplayboard.rightup.hold_time = 2
+        self.piplayboard.rightup.when_held = self._shutdownbutton
         
         self.piplayboard.leftup.when_pressed = self._playlistprevbutton
-
+        self.piplayboard.leftup.hold_time = 2
+        self.piplayboard.leftup.when_held = self._shutdownbutton
+        
         #setup state
         self.mpd_host = mpd_host
         self.mpd_port = mpd_port
@@ -191,35 +196,36 @@ class MPDControl():
             mpdstatusmon.stop()
             mpdkeepalive.stop()
             self.mpd.close()
-        
+
         self.running = False
 
-    def stop(self):
+    def shutdown(self):
+        self._off()
         self.stopped = True
-        while self.running:
-            sleep(0.1)
 
     #process events in the q
     def _processevent(self, event):
 
         #process events
-        if (event.eventType == Event.EventType.ONOFF):
+        if event.eventType == Event.EventType.ONOFF:
             self._onoff()
-        elif (event.eventType == Event.EventType.PINGMPD):
+        elif event.eventType == Event.EventType.PINGMPD:
             self._pingMPD()
-        elif (event.eventType == Event.EventType.VOLCHANGED):
+        elif event.eventType == Event.EventType.VOLCHANGED:
             self._displayvolume(event.value)
-        elif (event.eventType == Event.EventType.STATUSCHANGED):
+        elif event.eventType == Event.EventType.STATUSCHANGED:
             self._displaystatus(event.value)
+        elif event.eventType == Event.EventType.SHUTDOWN:
+            self.shutdown()
 
         if self.on:
-            if (event.eventType == Event.EventType.PLAYPAUSE):
+            if event.eventType == Event.EventType.PLAYPAUSE:
                 self._playpause()
-            elif (event.eventType == Event.EventType.VOL):
+            elif event.eventType == Event.EventType.VOL:
                 self._volume(event.value)
-            elif (event.eventType == Event.EventType.TRACK):
+            elif event.eventType == Event.EventType.TRACK:
                 self._skiptrack(event.value)
-            elif (event.eventType == Event.EventType.PLAYLIST):
+            elif event.eventType == Event.EventType.PLAYLIST:
                 self._skipplaylist(event.value)
             
     #button call backs
@@ -246,6 +252,10 @@ class MPDControl():
 
     def _playlistprevbutton(self):
         self.eventQ.put(Event(Event.EventType.PLAYLIST, -1))
+
+    def _shutdownbutton(self):
+        if self.piplayboard.leftup.is_held and self.piplayboard.rightup.is_held:
+            self.eventQ.put(Event(Event.EventType.SHUTDOWN))
 
     #functions to control mpd
     def _safeMPDExec(self, func, *arg): 

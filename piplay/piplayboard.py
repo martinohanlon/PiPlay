@@ -33,6 +33,7 @@ class HoldableButton(Button):
         self._when_held = None
         self._when_pressed = None
         self._when_released = None
+        self._is_held = False
 
         self.hold_time = hold_time
         self.repeat = repeat
@@ -63,15 +64,18 @@ class HoldableButton(Button):
     def when_held(self, value):
         self._when_held = value
 
+    @property
+    def is_held(self):
+        return self._is_held
+
     def _when_button_pressed(self):
         self._start_hold()
-
         if self._when_pressed != None:
             self._when_pressed()
 
     def _when_button_released(self):
+        self._is_held = False
         self._stop_hold()
-
         if self._when_released != None:
             self.when_released()
 
@@ -85,10 +89,11 @@ class HoldableButton(Button):
             self._held_timer.cancel()
 
     def _button_held(self):
-        self._when_held()
+        self._is_held = True
         if self.repeat == True and self.is_pressed == True:
             self._start_hold()
-
+        self._when_held()
+        
 class LEDDisplay(LEDBarGraph):
     def __init__(self, *pins, **kwargs):
 
