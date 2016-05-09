@@ -2,16 +2,16 @@ from gpiozero import Button, LEDBarGraph
 from threading import Timer
 from time import sleep
 
-PINS = {"BUT_MID": 26,
-        "BUT_L_UP": 4,
-        "BUT_L_DOWN": 17,
+PINS = {"BUT_MID": 17,
+        "BUT_L_UP": 15,
+        "BUT_L_DOWN": 4,
         "BUT_R_UP": 23,
         "BUT_R_DOWN": 27,
         "BUT_L": 13,
         "BUT_R": 16,
         "LEDBARGRAPH": (24, 25, 10, 9, 11, 8, 7, 5, 6, 12)}
 
-INVERTEDPINS ={"BUT_MID": 26,
+INVERTEDPINS ={"BUT_MID": 15,
                "BUT_L_UP": 27,
                "BUT_L_DOWN": 23,
                "BUT_R_UP": 17,
@@ -80,9 +80,8 @@ class HoldableButton(Button):
             self.when_released()
 
     def _start_hold(self):
-        if self._when_held != None:
-            self._held_timer = Timer(self.hold_time, self._button_held)
-            self._held_timer.start()
+        self._held_timer = Timer(self.hold_time, self._button_held)
+        self._held_timer.start()
 
     def _stop_hold(self):
         if self._held_timer != None:
@@ -90,9 +89,10 @@ class HoldableButton(Button):
 
     def _button_held(self):
         self._is_held = True
-        if self.repeat == True and self.is_pressed == True:
-            self._start_hold()
-        self._when_held()
+        if self._when_held != None:
+            if self.repeat and self.is_pressed:
+                self._start_hold()
+            self._when_held()
         
 class LEDDisplay(LEDBarGraph):
     def __init__(self, *pins, **kwargs):
@@ -165,14 +165,14 @@ class PiPlayBoard():
 #test
 if __name__ == "__main__":
 
-    def button_pressed(button):
-        print("pressed {}".format(button.pin))
+    def button_pressed():
+        print("button pressed")
     
     piplayboard = PiPlayBoard(True)
     for button in piplayboard.buttons:
         button.when_pressed = button_pressed
     for v in range(-10, 10):
-        piplayboard.ledbargraph.value = v
+        piplayboard.leddisplay.value = v
     while True:
         pass
     

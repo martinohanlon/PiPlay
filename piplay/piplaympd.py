@@ -187,7 +187,7 @@ class MPDControl():
                 #process events
                 while not self.eventQ.empty():
                     event = self.eventQ.get()
-                    print(event.eventType)
+                    #print(event.eventType)
                     self._processevent(event)
                     
                 sleep(0.01)
